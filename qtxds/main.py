@@ -1,8 +1,13 @@
+import os
+from pathlib import Path
+
 import pkg_resources
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar, QVBoxLayout, QWidget)
+
+from qtxds.roms import NdsRom
 
 
 class MainWindow(QMainWindow):
@@ -75,11 +80,14 @@ class MainWindow(QMainWindow):
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
         filters = 'Nintendo DS ROMs (*.nds);;Nintendo 3DS ROMs (*.3ds)'
-        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', '', filters)
+        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', os.path.expanduser('~'), filters)
 
         if accepted:
-            with open(filename) as file:
-                file.read()
+            path = Path(filename)
+            if path.suffix == '.nds':
+                rom = NdsRom(path)
+            if rom:
+                rom.extract()
 
 
 class AboutDialog(QDialog):

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 requirements = [
-    # TODO: put your package requirements here
+    'PyQt5',
 ]
 
 test_requirements = [
