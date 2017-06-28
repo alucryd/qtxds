@@ -1,13 +1,16 @@
-import os
+import asyncio
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pkg_resources
-
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar, QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
+                             QVBoxLayout, QWidget)
 
 from qtxds.roms import NdsRom
+from tools import NdsTools
 
 
 class MainWindow(QMainWindow):
@@ -16,7 +19,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
         super(MainWindow, self).__init__(parent)
-        self.resize(1024, 768)
+        self.resize(640, 480)
         self.setWindowTitle('qtxds')
         # window_icon = pkg_resources.resource_filename('qtxds.images',
         #                                               'ic_insert_drive_file_black_48dp_1x.png')
@@ -28,13 +31,26 @@ class MainWindow(QMainWindow):
         self.menu_bar = self.menuBar()
         self.about_dialog = AboutDialog()
 
-        # self.status_bar = self.statusBar()
-        # self.status_bar.showMessage('Ready', 5000)
+        self.status_bar = self.statusBar()
+        self.status_bar.showMessage('Ready')
 
         self.file_menu()
         self.help_menu()
 
-        # self.tool_bar_items()
+        self.tool_bar_items()
+
+        self.rom = None
+        self.ndstools = NdsTools(self.status_bar)
+
+        # Asyncio Event Loop
+        if sys.platform == "win32":
+            self.loop = asyncio.ProactorEventLoop()
+            asyncio.set_event_loop(self.loop)
+        else:
+            self.loop = asyncio.get_event_loop()
+        executor = ThreadPoolExecutor(max_workers=1)
+        self.loop.set_default_executor(executor)
+
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -70,24 +86,41 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, self.tool_bar)
         self.tool_bar.setMovable(False)
 
-        open_icon = pkg_resources.resource_filename('qtxds.images',
-                                                    'ic_open_in_new_black_48dp_1x.png')
-        tool_bar_open_action = QAction(QIcon(open_icon), 'Open File', self)
-        tool_bar_open_action.triggered.connect(self.open_file)
+        # open_icon = pkg_resources.resource_filename('qtxds.images',
+        #                                             'ic_open_in_new_black_48dp_1x.png')
+        tool_bar_extract_action = QAction('Extract', self)
+        tool_bar_extract_action.triggered.connect(self.extract)
 
-        self.tool_bar.addAction(tool_bar_open_action)
+        tool_bar_extract_banner_bmp_action = QAction('Extract Banner BMP', self)
+        tool_bar_extract_banner_bmp_action.triggered.connect(self.extract_banner_bmp)
+
+        self.tool_bar.addAction(tool_bar_extract_action)
+        self.tool_bar.addAction(tool_bar_extract_banner_bmp_action)
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
         filters = 'Nintendo DS ROMs (*.nds);;Nintendo 3DS ROMs (*.3ds)'
-        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', os.path.expanduser('~'), filters)
+        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', str(Path.home()), filters)
 
         if accepted:
             path = Path(filename)
             if path.suffix == '.nds':
-                rom = NdsRom(path)
-            if rom:
-                rom.extract()
+                self.rom = NdsRom(path)
+            if self.rom:
+                self.loop.run_until_complete(self.ndstools.info(self.rom))
+                print(self.rom.title)
+                print(self.rom.code)
+                print(self.rom.maker)
+
+    def extract(self):
+        """Extract the open ROM."""
+        if isinstance(self.rom, NdsRom):
+            self.loop.run_in_executor(None, self.ndstools.extract, self.rom)
+
+    def extract_banner_bmp(self):
+        """Extract the open ROM's BMP banner."""
+        if isinstance(self.rom, NdsRom):
+            self.loop.run_until_complete(self.ndstools.extract_banner_bmp(self.rom))
 
 
 class AboutDialog(QDialog):
