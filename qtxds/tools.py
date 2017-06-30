@@ -2,21 +2,24 @@ import asyncio
 import shutil
 import subprocess
 
+import sys
+
+from PyQt5.QtWidgets import QApplication
+
 
 class NdsTools:
     def __init__(self, status_bar):
         self.status_bar = status_bar
         self.path = shutil.which('ndstool')
 
-    @asyncio.coroutine
-    def info(self, rom):
+    async def info(self, rom):
         cmd = [str(self.path), '-i', str(rom.path)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
-        proc = yield from create
+        proc = await create
 
         while True:
-            data = yield from proc.stdout.readline()
+            data = await proc.stdout.readline()
             line = data.decode('utf8').rstrip()
             if line:
                 if line.startswith('0x00'):
@@ -66,8 +69,7 @@ class NdsTools:
 
         self.status_bar.showMessage('Ready')
 
-    @asyncio.coroutine
-    def rebuild(self, rom):
+    async def rebuild(self, rom):
         self.status_bar.showMessage('Extracting...')
 
         cmd = [str(self.path), '-c', str(rom.path)]
@@ -81,7 +83,8 @@ class NdsTools:
         cmd += ['-h', str(rom.header_bin)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=subprocess.DEVNULL)
-        proc = yield from create
-        yield from proc.wait()
+        proc = await create
+        await proc.wait()
 
         self.status_bar.showMessage('Ready')
+

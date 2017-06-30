@@ -3,15 +3,13 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-import pkg_resources
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
-                             QVBoxLayout, QWidget)
+                             QVBoxLayout, QWidget, QDesktopWidget)
+from quamash import QEventLoop
 
 from qtxds.roms import NdsRom
 from tools import NdsTools
-
 
 class MainWindow(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
@@ -48,8 +46,8 @@ class MainWindow(QMainWindow):
             asyncio.set_event_loop(self.loop)
         else:
             self.loop = asyncio.get_event_loop()
-        executor = ThreadPoolExecutor(max_workers=1)
-        self.loop.set_default_executor(executor)
+        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.loop.set_debug(True)
 
 
     def file_menu(self):
@@ -115,7 +113,8 @@ class MainWindow(QMainWindow):
     def extract(self):
         """Extract the open ROM."""
         if isinstance(self.rom, NdsRom):
-            self.loop.run_in_executor(None, self.ndstools.extract, self.rom)
+            coro = self.ndstools.extract(self.rom)
+            asyncio.run_coroutine_threadsafe(coro, self.loop)
 
     def extract_banner_bmp(self):
         """Extract the open ROM's BMP banner."""
@@ -149,3 +148,28 @@ class AboutDialog(QDialog):
         self.layout.addWidget(github)
 
         self.setLayout(self.layout)
+
+if __name__ == '__main__':
+    sys._excepthook = sys.excepthook
+
+    def excepthook(excepttype, value, traceback):
+        print(excepttype, value, traceback)
+        sys._excepthook(excepttype, value, traceback)
+        sys.exit(1)
+
+    sys.excepthook = excepthook
+
+    application = QApplication(sys.argv)
+    loop = QEventLoop(application)
+    asyncio.set_event_loop(loop)
+
+    window = MainWindow()
+    desktop = QDesktopWidget().availableGeometry()
+    width = (desktop.width() - window.width()) / 2
+    height = (desktop.height() - window.height()) / 2
+    window.show()
+    window.move(width, height)
+
+    sys.exit(application.exec_())
+
+
