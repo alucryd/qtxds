@@ -1,6 +1,5 @@
 import asyncio
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PyQt5.QtCore import Qt
@@ -10,6 +9,7 @@ from quamash import QEventLoop
 
 from qtxds.roms import NdsRom
 from tools import NdsTools
+
 
 class MainWindow(QMainWindow):
     """Create the main window that stores all of the widgets necessary for the application."""
@@ -39,16 +39,6 @@ class MainWindow(QMainWindow):
 
         self.rom = None
         self.ndstools = NdsTools(self.status_bar)
-
-        # Asyncio Event Loop
-        if sys.platform == "win32":
-            self.loop = asyncio.ProactorEventLoop()
-            asyncio.set_event_loop(self.loop)
-        else:
-            self.loop = asyncio.get_event_loop()
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.loop.set_debug(True)
-
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -89,11 +79,11 @@ class MainWindow(QMainWindow):
         tool_bar_extract_action = QAction('Extract', self)
         tool_bar_extract_action.triggered.connect(self.extract)
 
-        tool_bar_extract_banner_bmp_action = QAction('Extract Banner BMP', self)
-        tool_bar_extract_banner_bmp_action.triggered.connect(self.extract_banner_bmp)
+        # tool_bar_extract_banner_bmp_action = QAction('Extract Banner BMP', self)
+        # tool_bar_extract_banner_bmp_action.triggered.connect(self.extract_banner_bmp)
 
         self.tool_bar.addAction(tool_bar_extract_action)
-        self.tool_bar.addAction(tool_bar_extract_banner_bmp_action)
+        # self.tool_bar.addAction(tool_bar_extract_banner_bmp_action)
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
@@ -105,7 +95,8 @@ class MainWindow(QMainWindow):
             if path.suffix == '.nds':
                 self.rom = NdsRom(path)
             if self.rom:
-                self.loop.run_until_complete(self.ndstools.info(self.rom))
+                coro = self.ndstools.info(self.rom)
+                asyncio.ensure_future(coro)
                 print(self.rom.title)
                 print(self.rom.code)
                 print(self.rom.maker)
@@ -114,12 +105,7 @@ class MainWindow(QMainWindow):
         """Extract the open ROM."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.extract(self.rom)
-            asyncio.run_coroutine_threadsafe(coro, self.loop)
-
-    def extract_banner_bmp(self):
-        """Extract the open ROM's BMP banner."""
-        if isinstance(self.rom, NdsRom):
-            self.loop.run_until_complete(self.ndstools.extract_banner_bmp(self.rom))
+            asyncio.ensure_future(coro)
 
 
 class AboutDialog(QDialog):
@@ -161,6 +147,9 @@ if __name__ == '__main__':
 
     application = QApplication(sys.argv)
     loop = QEventLoop(application)
+    loop.set_debug(True)
+    # executor = QThreadExecutor(1)
+    # loop.set_default_executor(executor)
     asyncio.set_event_loop(loop)
 
     window = MainWindow()
@@ -170,6 +159,7 @@ if __name__ == '__main__':
     window.show()
     window.move(width, height)
 
-    sys.exit(application.exec_())
+    with loop:
+        loop.run_forever()
 
 
