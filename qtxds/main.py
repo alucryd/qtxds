@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import sys
 from pathlib import Path
 
@@ -76,14 +77,26 @@ class MainWindow(QMainWindow):
 
         # open_icon = pkg_resources.resource_filename('qtxds.images',
         #                                             'ic_open_in_new_black_48dp_1x.png')
-        tool_bar_extract_action = QAction('Extract', self)
-        tool_bar_extract_action.triggered.connect(self.extract)
+        self.tool_bar_extract_action = QAction('Extract', self)
+        self.tool_bar_extract_action.triggered.connect(self.extract)
+        self.tool_bar_extract_action.setEnabled(False)
 
-        # tool_bar_extract_banner_bmp_action = QAction('Extract Banner BMP', self)
-        # tool_bar_extract_banner_bmp_action.triggered.connect(self.extract_banner_bmp)
+        self.tool_bar_rebuild_action = QAction('Rebuild', self)
+        self.tool_bar_rebuild_action.triggered.connect(self.rebuild)
+        self.tool_bar_rebuild_action.setEnabled(False)
 
-        self.tool_bar.addAction(tool_bar_extract_action)
-        # self.tool_bar.addAction(tool_bar_extract_banner_bmp_action)
+        self.tool_bar.addAction(self.tool_bar_extract_action)
+        self.tool_bar.addAction(self.tool_bar_rebuild_action)
+
+    def enable_extract_action(self, future):
+        """Enables the extract QAction."""
+        if not future.exception():
+            self.tool_bar_extract_action.setEnabled(True)
+
+    def enable_rebuild_action(self, future):
+        """Enables the extract QAction."""
+        if not future.exception():
+            self.tool_bar_rebuild_action.setEnabled(True)
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
@@ -96,15 +109,20 @@ class MainWindow(QMainWindow):
                 self.rom = NdsRom(path)
             if self.rom:
                 coro = self.ndstools.info(self.rom)
-                asyncio.ensure_future(coro)
-                print(self.rom.title)
-                print(self.rom.code)
-                print(self.rom.maker)
+                future = asyncio.ensure_future(coro)
+                future.add_done_callback(self.enable_extract_action)
 
     def extract(self):
         """Extract the open ROM."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.extract(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_rebuild_action)
+
+    def rebuild(self):
+        """Rebuild the open ROM."""
+        if isinstance(self.rom, NdsRom):
+            coro = self.ndstools.rebuild(self.rom)
             asyncio.ensure_future(coro)
 
 

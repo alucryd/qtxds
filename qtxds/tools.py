@@ -57,9 +57,9 @@ class NdsTools:
         self.status_bar.showMessage('Ready')
 
     async def rebuild(self, rom):
-        self.status_bar.showMessage('Extracting...')
+        self.status_bar.showMessage('Rebuilding...')
 
-        cmd = [str(self.path), '-c', str(rom.path)]
+        cmd = [str(self.path), '-c', str(rom.path.with_name(rom.path.stem + '_new' + rom.path.suffix))]
         cmd += ['-9', str(rom.arm9_bin)]
         cmd += ['-7', str(rom.arm7_bin)]
         cmd += ['-y9', str(rom.overlay9_bin)]
