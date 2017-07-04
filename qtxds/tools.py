@@ -3,12 +3,19 @@ import shutil
 import subprocess
 
 
-class NdsTools:
-    def __init__(self, status_bar):
+class Tools:
+    def __init__(self, tool, status_bar):
         self.status_bar = status_bar
-        self.path = shutil.which('ndstool')
+        self.path = shutil.which(tool)
+
+
+class NdsTools(Tools):
+    def __init__(self, status_bar):
+        Tools.__init__(self, 'ndstool', status_bar)
 
     async def info(self, rom):
+        self.status_bar.showMessage('Analyzing...')
+
         cmd = [str(self.path), '-i', str(rom.path)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
@@ -20,20 +27,63 @@ class NdsTools:
             if line:
                 if line.startswith('0x00'):
                     rom.title = line.split()[-1]
-                    print(rom.title)
                     continue
                 if line.startswith('0x0C'):
                     rom.code = line.split()[-1][1:-1]
-                    print(rom.code)
                     continue
                 if line.startswith('0x10'):
                     rom.maker = line.split()[-1][1:-1]
-                    print(rom.maker)
                     continue
             else:
                 break
 
         await proc.wait()
+
+        self.status_bar.showMessage('Ready')
+
+    async def fix_header_crc(self, rom):
+        self.status_bar.showMessage('Fixing Header CRC...')
+
+        cmd = [str(self.path), '-f', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        self.status_bar.showMessage('Ready')
+
+    async def encrypt_nintendo(self, rom):
+        self.status_bar.showMessage('Encrypting (Nintendo)...')
+
+        cmd = [str(self.path), '-se', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        self.status_bar.showMessage('Ready')
+
+    async def encrypt_others(self, rom):
+        self.status_bar.showMessage('Encrypting (others)...')
+
+        cmd = [str(self.path), '-sE', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        self.status_bar.showMessage('Ready')
+
+    async def decrypt(self, rom):
+        self.status_bar.showMessage('Decrypting...')
+
+        cmd = [str(self.path), '-sd', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        self.status_bar.showMessage('Ready')
 
     async def extract(self, rom):
         self.status_bar.showMessage('Extracting...')
@@ -74,4 +124,9 @@ class NdsTools:
         await proc.wait()
 
         self.status_bar.showMessage('Ready')
+
+
+class ThreedsTools(Tools):
+    def __init__(self, status_bar):
+        Tools.__init__(self, '3dstools', status_bar)
 

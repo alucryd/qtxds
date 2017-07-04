@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import sys
 from pathlib import Path
 
@@ -9,7 +8,7 @@ from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxL
 from quamash import QEventLoop
 
 from qtxds.roms import NdsRom
-from tools import NdsTools
+from tools import NdsTools, ThreedsTools
 
 
 class MainWindow(QMainWindow):
@@ -40,6 +39,15 @@ class MainWindow(QMainWindow):
 
         self.rom = None
         self.ndstools = NdsTools(self.status_bar)
+        self.threedstools = ThreedsTools(self.status_bar)
+
+        filters = []
+        if self.ndstools.path:
+            filters.append('Nintendo DS ROMs (*.nds)')
+        if self.threedstools.path:
+            filters.append('Nintendo 3DS ROMs (*.3ds)')
+        if self.ndstools.path or self.threedstools.path:
+            self.filters = ';;'.join(filters)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -100,8 +108,7 @@ class MainWindow(QMainWindow):
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
-        filters = 'Nintendo DS ROMs (*.nds);;Nintendo 3DS ROMs (*.3ds)'
-        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', str(Path.home()), filters)
+        filename, accepted = QFileDialog().getOpenFileName(self, 'Open File', str(Path.home()), self.filters)
 
         if accepted:
             path = Path(filename)
