@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
-                             QVBoxLayout, QWidget, QDesktopWidget)
+                             QVBoxLayout, QWidget, QDesktopWidget, QGridLayout, QGroupBox)
 from quamash import QEventLoop
 
 from qtxds.roms import NdsRom
@@ -23,8 +23,8 @@ class MainWindow(QMainWindow):
         #                                               'ic_insert_drive_file_black_48dp_1x.png')
         # self.setWindowIcon(QIcon(window_icon))
 
-        self.widget = QWidget()
-        self.layout = QHBoxLayout(self.widget)
+        self.nds_main_grid()
+        self.setCentralWidget(self.nds_group_box)
 
         self.menu_bar = self.menuBar()
         self.about_dialog = AboutDialog()
@@ -48,6 +48,26 @@ class MainWindow(QMainWindow):
             filters.append('Nintendo 3DS ROMs (*.3ds)')
         if self.ndstools.path or self.threedstools.path:
             self.filters = ';;'.join(filters)
+
+    def nds_main_grid(self):
+        self.nds_group_box = QGroupBox("NDS")
+
+        layout = QGridLayout()
+        layout.setColumnStretch(1, 4)
+        layout.setColumnStretch(2, 4)
+
+        self.rom_title = QLabel()
+        self.rom_game_code = QLabel()
+        self.rom_maker_code = QLabel()
+
+        layout.addWidget(QLabel("Title"), 0, 0)
+        layout.addWidget(self.rom_title, 0, 1)
+        layout.addWidget(QLabel("Game Code"), 1, 0)
+        layout.addWidget(self.rom_game_code, 1, 1)
+        layout.addWidget(QLabel("Maker Code"), 2, 0)
+        layout.addWidget(self.rom_maker_code, 2, 1)
+
+        self.nds_group_box.setLayout(layout)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -85,6 +105,22 @@ class MainWindow(QMainWindow):
 
         # open_icon = pkg_resources.resource_filename('qtxds.images',
         #                                             'ic_open_in_new_black_48dp_1x.png')
+        self.tool_bar_fix_header_crc_action = QAction('Fix Header CRC', self)
+        self.tool_bar_fix_header_crc_action.triggered.connect(self.fix_header_crc)
+        self.tool_bar_fix_header_crc_action.setEnabled(False)
+
+        self.tool_bar_decrypt_action = QAction('Decrypt', self)
+        self.tool_bar_decrypt_action.triggered.connect(self.decrypt)
+        self.tool_bar_decrypt_action.setEnabled(False)
+
+        self.tool_bar_encrypt_nintendo_action = QAction('Encrypt (Nintendo)', self)
+        self.tool_bar_encrypt_nintendo_action.triggered.connect(self.encrypt_nintendo)
+        self.tool_bar_encrypt_nintendo_action.setEnabled(False)
+
+        self.tool_bar_encrypt_others_action = QAction('Encrypt (others)', self)
+        self.tool_bar_encrypt_others_action.triggered.connect(self.encrypt_others)
+        self.tool_bar_encrypt_others_action.setEnabled(False)
+
         self.tool_bar_extract_action = QAction('Extract', self)
         self.tool_bar_extract_action.triggered.connect(self.extract)
         self.tool_bar_extract_action.setEnabled(False)
@@ -93,12 +129,19 @@ class MainWindow(QMainWindow):
         self.tool_bar_rebuild_action.triggered.connect(self.rebuild)
         self.tool_bar_rebuild_action.setEnabled(False)
 
+        self.tool_bar.addAction(self.tool_bar_fix_header_crc_action)
+        self.tool_bar.addAction(self.tool_bar_decrypt_action)
+        self.tool_bar.addAction(self.tool_bar_encrypt_nintendo_action)
+        self.tool_bar.addAction(self.tool_bar_encrypt_others_action)
         self.tool_bar.addAction(self.tool_bar_extract_action)
         self.tool_bar.addAction(self.tool_bar_rebuild_action)
 
-    def enable_extract_action(self, future):
+    def open_nds_rom_callback(self, future):
         """Enables the extract QAction."""
         if not future.exception():
+            self.rom_title.setText(self.rom.title)
+            self.rom_game_code.setText(self.rom.game_code)
+            self.rom_maker_code.setText(self.rom.maker_code)
             self.tool_bar_extract_action.setEnabled(True)
 
     def enable_rebuild_action(self, future):
@@ -117,7 +160,35 @@ class MainWindow(QMainWindow):
             if self.rom:
                 coro = self.ndstools.info(self.rom)
                 future = asyncio.ensure_future(coro)
-                future.add_done_callback(self.enable_extract_action)
+                future.add_done_callback(self.open_nds_rom_callback)
+
+    def fix_header_crc(self):
+        """Fix the open ROM's header's CRC."""
+        if isinstance(self.rom, NdsRom):
+            coro = self.ndstools.fix_header_crc(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_rebuild_action)
+
+    def decrypt(self):
+        """Decrypt the open ROM."""
+        if isinstance(self.rom, NdsRom):
+            coro = self.ndstools.decrypt(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_rebuild_action)
+
+    def encrypt_nintendo(self):
+        """Encrypt the open ROM (Nintendo)."""
+        if isinstance(self.rom, NdsRom):
+            coro = self.ndstools.encrypt_nintendo(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_rebuild_action)
+
+    def encrypt_others(self):
+        """Encrypt the open ROM (Others)."""
+        if isinstance(self.rom, NdsRom):
+            coro = self.ndstools.encrypt_others(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_rebuild_action)
 
     def extract(self):
         """Extract the open ROM."""

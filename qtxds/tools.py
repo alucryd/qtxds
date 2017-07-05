@@ -29,10 +29,10 @@ class NdsTools(Tools):
                     rom.title = line.split()[-1]
                     continue
                 if line.startswith('0x0C'):
-                    rom.code = line.split()[-1][1:-1]
+                    rom.game_code = line.split()[-1][1:-1]
                     continue
                 if line.startswith('0x10'):
-                    rom.maker = line.split()[-1][1:-1]
+                    rom.maker_code = line.split()[-1][1:-1]
                     continue
             else:
                 break

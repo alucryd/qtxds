@@ -16,6 +16,6 @@ class NdsRom:
         self.header_bin = self.extract_path / 'header.bin'
 
         self.title = ''
-        self.code = ''
-        self.maker = ''
+        self.game_code = ''
+        self.maker_code = ''
         self.decrypted = True
