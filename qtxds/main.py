@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
-                             QVBoxLayout, QWidget, QDesktopWidget, QGridLayout, QGroupBox)
+                             QVBoxLayout, QDesktopWidget, QGridLayout, QGroupBox, QLineEdit)
 from quamash import QEventLoop
 
 from qtxds.roms import NdsRom
@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
         super(MainWindow, self).__init__(parent)
-        self.resize(640, 480)
+        # self.resize(640, 480)
         self.setWindowTitle('qtxds')
         # window_icon = pkg_resources.resource_filename('qtxds.images',
         #                                               'ic_insert_drive_file_black_48dp_1x.png')
@@ -52,22 +52,38 @@ class MainWindow(QMainWindow):
     def nds_main_grid(self):
         self.nds_group_box = QGroupBox("NDS")
 
-        layout = QGridLayout()
-        layout.setColumnStretch(1, 4)
-        layout.setColumnStretch(2, 4)
+        hbox_layout = QHBoxLayout()
 
-        self.rom_title = QLabel()
-        self.rom_game_code = QLabel()
-        self.rom_maker_code = QLabel()
+        info_group_box = QGroupBox('General Information')
+        content_group_box = QGroupBox('Content')
 
-        layout.addWidget(QLabel("Title"), 0, 0)
-        layout.addWidget(self.rom_title, 0, 1)
-        layout.addWidget(QLabel("Game Code"), 1, 0)
-        layout.addWidget(self.rom_game_code, 1, 1)
-        layout.addWidget(QLabel("Maker Code"), 2, 0)
-        layout.addWidget(self.rom_maker_code, 2, 1)
+        info_grid_layout = QGridLayout()
+        content_grid_layout = QGridLayout()
 
-        self.nds_group_box.setLayout(layout)
+        self.rom_title = QLineEdit()
+        self.rom_game_code = QLineEdit()
+        self.rom_maker_code = QLineEdit()
+        self.rom_secure_area_crc = QLabel()
+        self.rom_decrypted = QLabel()
+        self.rom_header_crc = QLabel()
+
+        info_grid_layout.addWidget(QLabel("Title"), 0, 0)
+        info_grid_layout.addWidget(self.rom_title, 0, 1)
+        info_grid_layout.addWidget(QLabel("Game Code"), 1, 0)
+        info_grid_layout.addWidget(self.rom_game_code, 1, 1)
+        info_grid_layout.addWidget(QLabel("Maker Code"), 2, 0)
+        info_grid_layout.addWidget(self.rom_maker_code, 2, 1)
+        info_grid_layout.addWidget(QLabel("Secure Area CRC"), 3, 0)
+        info_grid_layout.addWidget(self.rom_secure_area_crc, 3, 1)
+        info_grid_layout.addWidget(QLabel("Header CRC"), 4, 0)
+        info_grid_layout.addWidget(self.rom_header_crc, 4, 1)
+
+        info_group_box.setLayout(info_grid_layout)
+        content_group_box.setLayout(content_grid_layout)
+
+        hbox_layout.addWidget(info_group_box)
+        hbox_layout.addWidget(content_group_box)
+        self.nds_group_box.setLayout(hbox_layout)
 
     def file_menu(self):
         """Create a file submenu with an Open File item that opens a file dialog."""
@@ -136,18 +152,28 @@ class MainWindow(QMainWindow):
         self.tool_bar.addAction(self.tool_bar_extract_action)
         self.tool_bar.addAction(self.tool_bar_rebuild_action)
 
-    def open_nds_rom_callback(self, future):
-        """Enables the extract QAction."""
+    def enable_extract_callback(self, future):
+        """Callback for opening a ROM."""
         if not future.exception():
             self.rom_title.setText(self.rom.title)
             self.rom_game_code.setText(self.rom.game_code)
             self.rom_maker_code.setText(self.rom.maker_code)
+            self.rom_secure_area_crc.setText(', '.join((self.rom.secure_area_crc, self.rom.decrypted)))
+            self.rom_header_crc.setText(self.rom.header_crc)
+
             self.tool_bar_extract_action.setEnabled(True)
 
-    def enable_rebuild_action(self, future):
-        """Enables the extract QAction."""
+    def enable_rebuild_callback(self, future):
+        """Enables the rebuild QAction."""
         if not future.exception():
             self.tool_bar_rebuild_action.setEnabled(True)
+
+    def info_callback(self, future):
+        """Refresh ROM information."""
+        if not future.exception():
+            coro = self.ndstools.info(self.rom)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.enable_extract_callback)
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
@@ -160,48 +186,53 @@ class MainWindow(QMainWindow):
             if self.rom:
                 coro = self.ndstools.info(self.rom)
                 future = asyncio.ensure_future(coro)
-                future.add_done_callback(self.open_nds_rom_callback)
+                future.add_done_callback(self.enable_extract_callback)
 
     def fix_header_crc(self):
         """Fix the open ROM's header's CRC."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.fix_header_crc(self.rom)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_action)
+            future.add_done_callback(self.info_callback)
 
     def decrypt(self):
         """Decrypt the open ROM."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.decrypt(self.rom)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_action)
+            future.add_done_callback(self.info_callback)
 
     def encrypt_nintendo(self):
         """Encrypt the open ROM (Nintendo)."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.encrypt_nintendo(self.rom)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_action)
+            future.add_done_callback(self.info_callback)
 
     def encrypt_others(self):
         """Encrypt the open ROM (Others)."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.encrypt_others(self.rom)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_action)
+            future.add_done_callback(self.info_callback)
 
     def extract(self):
         """Extract the open ROM."""
-        if isinstance(self.rom, NdsRom):
-            coro = self.ndstools.extract(self.rom)
-            future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_action)
+        dirname = QFileDialog().getExistingDirectory(self, 'Open File', str(self.rom.extract_dir))
+
+        if dirname:
+            self.rom.extract_dir = Path(dirname)
+            if isinstance(self.rom, NdsRom):
+                coro = self.ndstools.extract(self.rom)
+                future = asyncio.ensure_future(coro)
+                future.add_done_callback(self.enable_rebuild_callback)
 
     def rebuild(self):
         """Rebuild the open ROM."""
         if isinstance(self.rom, NdsRom):
             coro = self.ndstools.rebuild(self.rom)
-            asyncio.ensure_future(coro)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.info_callback)
 
 
 class AboutDialog(QDialog):

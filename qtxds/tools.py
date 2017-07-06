@@ -2,6 +2,8 @@ import asyncio
 import shutil
 import subprocess
 
+import re
+
 
 class Tools:
     def __init__(self, tool, status_bar):
@@ -33,6 +35,12 @@ class NdsTools(Tools):
                     continue
                 if line.startswith('0x10'):
                     rom.maker_code = line.split()[-1][1:-1]
+                    continue
+                if line.startswith('0x6C'):
+                    rom.secure_area_crc, rom.decrypted = re.findall('\(.*\)', line)[-1][1:-1].split(', ')
+                    continue
+                if line.startswith('0x15E'):
+                    rom.header_crc = line.split()[-1][1:-1]
                     continue
             else:
                 break
@@ -88,7 +96,7 @@ class NdsTools(Tools):
     async def extract(self, rom):
         self.status_bar.showMessage('Extracting...')
 
-        rom.extract_path.mkdir(exist_ok=True)
+        (rom.extract_dir / rom.path.stem).mkdir(exist_ok=True)
 
         cmd = [str(self.path), '-x', str(rom.path)]
         cmd += ['-9', str(rom.arm9_bin)]
@@ -109,7 +117,13 @@ class NdsTools(Tools):
     async def rebuild(self, rom):
         self.status_bar.showMessage('Rebuilding...')
 
-        cmd = [str(self.path), '-c', str(rom.path.with_name(rom.path.stem + '_new' + rom.path.suffix))]
+        # Backup original ROM
+        src = rom.path
+        dst = rom.path.with_suffix('.nds.old')
+        if not dst.exists():
+            shutil.copyfile(src, dst)
+
+        cmd = [str(self.path), '-c', str(rom.path)]
         cmd += ['-9', str(rom.arm9_bin)]
         cmd += ['-7', str(rom.arm7_bin)]
         cmd += ['-y9', str(rom.overlay9_bin)]
