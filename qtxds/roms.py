@@ -4,6 +4,7 @@ from pathlib import Path
 class NdsRom:
     def __init__(self, path):
         self.path = Path(path)
+        self.actual_size = ''
         self.extract_dir = self.path.parent
         self.title = ''
         self.game_code = ''

@@ -2,6 +2,7 @@ import asyncio
 import sys
 from pathlib import Path
 
+import humanize
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
                              QVBoxLayout, QDesktopWidget, QGridLayout, QGroupBox, QLineEdit)
@@ -63,9 +64,15 @@ class MainWindow(QMainWindow):
         self.rom_title = QLineEdit()
         self.rom_game_code = QLineEdit()
         self.rom_maker_code = QLineEdit()
+        self.rom_data_size = QLabel()
         self.rom_secure_area_crc = QLabel()
         self.rom_decrypted = QLabel()
         self.rom_header_crc = QLabel()
+
+        self.rom_arm9_size = QLabel()
+        self.rom_arm7_size = QLabel()
+        self.rom_overlay9_size = QLabel()
+        self.rom_overlay7_size = QLabel()
 
         info_grid_layout.addWidget(QLabel("Title"), 0, 0)
         info_grid_layout.addWidget(self.rom_title, 0, 1)
@@ -73,10 +80,12 @@ class MainWindow(QMainWindow):
         info_grid_layout.addWidget(self.rom_game_code, 1, 1)
         info_grid_layout.addWidget(QLabel("Maker Code"), 2, 0)
         info_grid_layout.addWidget(self.rom_maker_code, 2, 1)
-        info_grid_layout.addWidget(QLabel("Secure Area CRC"), 3, 0)
-        info_grid_layout.addWidget(self.rom_secure_area_crc, 3, 1)
-        info_grid_layout.addWidget(QLabel("Header CRC"), 4, 0)
-        info_grid_layout.addWidget(self.rom_header_crc, 4, 1)
+        info_grid_layout.addWidget(QLabel("Data Size"), 3, 0)
+        info_grid_layout.addWidget(self.rom_data_size, 3, 1)
+        info_grid_layout.addWidget(QLabel("Secure Area CRC"), 4, 0)
+        info_grid_layout.addWidget(self.rom_secure_area_crc, 4, 1)
+        info_grid_layout.addWidget(QLabel("Header CRC"), 5, 0)
+        info_grid_layout.addWidget(self.rom_header_crc, 5, 1)
 
         info_group_box.setLayout(info_grid_layout)
         content_group_box.setLayout(content_grid_layout)
@@ -152,15 +161,18 @@ class MainWindow(QMainWindow):
         self.tool_bar.addAction(self.tool_bar_extract_action)
         self.tool_bar.addAction(self.tool_bar_rebuild_action)
 
-    def enable_extract_callback(self, future):
+    def enable_functions_callback(self, future):
         """Callback for opening a ROM."""
         if not future.exception():
             self.rom_title.setText(self.rom.title)
             self.rom_game_code.setText(self.rom.game_code)
             self.rom_maker_code.setText(self.rom.maker_code)
+            self.rom_data_size.setText('{}/{}'.format(humanize.naturalsize(self.rom.actual_size, gnu=True),
+                                                      humanize.naturalsize(self.rom.path.stat().st_size, gnu=True)))
             self.rom_secure_area_crc.setText(', '.join((self.rom.secure_area_crc, self.rom.decrypted)))
             self.rom_header_crc.setText(self.rom.header_crc)
 
+            self.tool_bar_fix_header_crc_action.setEnabled(self.rom.header_crc != 'OK')
             self.tool_bar_extract_action.setEnabled(True)
 
     def enable_rebuild_callback(self, future):
@@ -173,7 +185,7 @@ class MainWindow(QMainWindow):
         if not future.exception():
             coro = self.ndstools.info(self.rom)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_extract_callback)
+            future.add_done_callback(self.enable_functions_callback)
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
@@ -181,12 +193,13 @@ class MainWindow(QMainWindow):
 
         if accepted:
             path = Path(filename)
+            self.tool_bar_rebuild_action.setEnabled(False)
             if path.suffix == '.nds':
                 self.rom = NdsRom(path)
             if self.rom:
                 coro = self.ndstools.info(self.rom)
                 future = asyncio.ensure_future(coro)
-                future.add_done_callback(self.enable_extract_callback)
+                future.add_done_callback(self.enable_functions_callback)
 
     def fix_header_crc(self):
         """Fix the open ROM's header's CRC."""
@@ -265,9 +278,9 @@ class AboutDialog(QDialog):
 if __name__ == '__main__':
     sys._excepthook = sys.excepthook
 
-    def excepthook(excepttype, value, traceback):
-        print(excepttype, value, traceback)
-        sys._excepthook(excepttype, value, traceback)
+    def excepthook(error, value, traceback):
+        print(error, value, traceback)
+        sys._excepthook(error, value, traceback)
         sys.exit(1)
 
     sys.excepthook = excepthook

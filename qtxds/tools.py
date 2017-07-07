@@ -4,11 +4,18 @@ import subprocess
 
 import re
 
+import sys
+
 
 class Tools:
     def __init__(self, tool, status_bar):
         self.status_bar = status_bar
         self.path = shutil.which(tool)
+
+        if sys.platform == 'win32':
+            self.encoding = 'cp1252'
+        else:
+            self.encoding = 'utf8'
 
 
 class NdsTools(Tools):
@@ -18,6 +25,7 @@ class NdsTools(Tools):
     async def info(self, rom):
         self.status_bar.showMessage('Analyzing...')
 
+        # Get information
         cmd = [str(self.path), '-i', str(rom.path)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
@@ -25,7 +33,7 @@ class NdsTools(Tools):
 
         while True:
             data = await proc.stdout.readline()
-            line = data.decode('utf8').rstrip()
+            line = data.decode(self.encoding).rstrip()
             if line:
                 if line.startswith('0x00'):
                     rom.title = line.split()[-1]
@@ -42,6 +50,24 @@ class NdsTools(Tools):
                 if line.startswith('0x15E'):
                     rom.header_crc = line.split()[-1][1:-1]
                     continue
+            else:
+                break
+
+        await proc.wait()
+
+        # Get actual size
+        cmd = [str(self.path), '-l', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
+        proc = await create
+
+        rom.actual_size = 0
+        while True:
+            data = await proc.stdout.readline()
+            line = data.decode(self.encoding).strip()
+            if line:
+                if line[0].isdigit():
+                    rom.actual_size += int(line.split()[3])
             else:
                 break
 
