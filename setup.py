@@ -2,7 +2,7 @@ from setuptools import setup
 
 requirements = [
     'PyQt5',
-    'quamash'
+    'quamash',
 ]
 
 test_requirements = [

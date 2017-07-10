@@ -45,10 +45,13 @@ class NdsTools(Tools):
                     rom.maker_code = line.split()[-1][1:-1]
                     continue
                 if line.startswith('0x6C'):
-                    rom.secure_area_crc, rom.decrypted = re.findall('\(.*\)', line)[-1][1:-1].split(', ')
+                    secure_area_crc, decrypted = re.findall('\(.*\)', line)[-1][1:-1].split(', ')
+                    rom.is_secure_area_crc_ok = secure_area_crc == 'OK'
+                    rom.is_decrypted = decrypted == 'decrypted'
                     continue
                 if line.startswith('0x15E'):
-                    rom.header_crc = line.split()[-1][1:-1]
+                    header_crc = line.split()[-1][1:-1]
+                    rom.is_header_crc_ok = header_crc == 'OK'
                     continue
             else:
                 break

@@ -64,28 +64,49 @@ class MainWindow(QMainWindow):
         self.rom_title = QLineEdit()
         self.rom_game_code = QLineEdit()
         self.rom_maker_code = QLineEdit()
-        self.rom_data_size = QLabel()
         self.rom_secure_area_crc = QLabel()
         self.rom_decrypted = QLabel()
         self.rom_header_crc = QLabel()
+        self.rom_size = QLabel()
 
         self.rom_arm9_size = QLabel()
         self.rom_arm7_size = QLabel()
         self.rom_overlay9_size = QLabel()
         self.rom_overlay7_size = QLabel()
+        self.rom_data_size = QLabel()
+        self.rom_overlay_size = QLabel()
+        self.rom_banner_size = QLabel()
+        self.rom_header_size = QLabel()
 
-        info_grid_layout.addWidget(QLabel("Title"), 0, 0)
+        info_grid_layout.addWidget(QLabel('Title'), 0, 0)
         info_grid_layout.addWidget(self.rom_title, 0, 1)
-        info_grid_layout.addWidget(QLabel("Game Code"), 1, 0)
+        info_grid_layout.addWidget(QLabel('Game Code'), 1, 0)
         info_grid_layout.addWidget(self.rom_game_code, 1, 1)
-        info_grid_layout.addWidget(QLabel("Maker Code"), 2, 0)
+        info_grid_layout.addWidget(QLabel('Maker Code'), 2, 0)
         info_grid_layout.addWidget(self.rom_maker_code, 2, 1)
-        info_grid_layout.addWidget(QLabel("Data Size"), 3, 0)
-        info_grid_layout.addWidget(self.rom_data_size, 3, 1)
-        info_grid_layout.addWidget(QLabel("Secure Area CRC"), 4, 0)
-        info_grid_layout.addWidget(self.rom_secure_area_crc, 4, 1)
-        info_grid_layout.addWidget(QLabel("Header CRC"), 5, 0)
-        info_grid_layout.addWidget(self.rom_header_crc, 5, 1)
+        info_grid_layout.addWidget(QLabel('Secure Area CRC'), 3, 0)
+        info_grid_layout.addWidget(self.rom_secure_area_crc, 3, 1)
+        info_grid_layout.addWidget(QLabel('Header CRC'), 4, 0)
+        info_grid_layout.addWidget(self.rom_header_crc, 4, 1)
+        info_grid_layout.addWidget(QLabel('Size'), 5, 0)
+        info_grid_layout.addWidget(self.rom_size, 5, 1)
+
+        content_grid_layout.addWidget(QLabel('ARM 9'), 0, 0)
+        content_grid_layout.addWidget(self.rom_arm9_size, 0, 1)
+        content_grid_layout.addWidget(QLabel('ARM 7'), 1, 0)
+        content_grid_layout.addWidget(self.rom_arm7_size, 1, 1)
+        content_grid_layout.addWidget(QLabel('Overlay 9'), 2, 0)
+        content_grid_layout.addWidget(self.rom_overlay9_size, 2, 1)
+        content_grid_layout.addWidget(QLabel('Overlay 7'), 3, 0)
+        content_grid_layout.addWidget(self.rom_overlay7_size, 3, 1)
+        content_grid_layout.addWidget(QLabel('Data'), 4, 0)
+        content_grid_layout.addWidget(self.rom_data_size, 4, 1)
+        content_grid_layout.addWidget(QLabel('Overlay'), 5, 0)
+        content_grid_layout.addWidget(self.rom_overlay_size, 5, 1)
+        content_grid_layout.addWidget(QLabel('Banner'), 6, 0)
+        content_grid_layout.addWidget(self.rom_banner_size, 6, 1)
+        content_grid_layout.addWidget(QLabel('Header'), 7, 0)
+        content_grid_layout.addWidget(self.rom_header_size, 7, 1)
 
         info_group_box.setLayout(info_grid_layout)
         content_group_box.setLayout(content_grid_layout)
@@ -138,13 +159,13 @@ class MainWindow(QMainWindow):
         self.tool_bar_decrypt_action.triggered.connect(self.decrypt)
         self.tool_bar_decrypt_action.setEnabled(False)
 
-        self.tool_bar_encrypt_nintendo_action = QAction('Encrypt (Nintendo)', self)
-        self.tool_bar_encrypt_nintendo_action.triggered.connect(self.encrypt_nintendo)
-        self.tool_bar_encrypt_nintendo_action.setEnabled(False)
+        self.tool_bar_encrypt_action = QAction('Encrypt', self)
+        self.tool_bar_encrypt_action.triggered.connect(self.encrypt)
+        self.tool_bar_encrypt_action.setEnabled(False)
 
-        self.tool_bar_encrypt_others_action = QAction('Encrypt (others)', self)
-        self.tool_bar_encrypt_others_action.triggered.connect(self.encrypt_others)
-        self.tool_bar_encrypt_others_action.setEnabled(False)
+        self.tool_bar_trim_action = QAction('Trim', self)
+        self.tool_bar_trim_action.triggered.connect(self.trim)
+        self.tool_bar_trim_action.setEnabled(False)
 
         self.tool_bar_extract_action = QAction('Extract', self)
         self.tool_bar_extract_action.triggered.connect(self.extract)
@@ -156,8 +177,8 @@ class MainWindow(QMainWindow):
 
         self.tool_bar.addAction(self.tool_bar_fix_header_crc_action)
         self.tool_bar.addAction(self.tool_bar_decrypt_action)
-        self.tool_bar.addAction(self.tool_bar_encrypt_nintendo_action)
-        self.tool_bar.addAction(self.tool_bar_encrypt_others_action)
+        self.tool_bar.addAction(self.tool_bar_encrypt_action)
+        self.tool_bar.addAction(self.tool_bar_trim_action)
         self.tool_bar.addAction(self.tool_bar_extract_action)
         self.tool_bar.addAction(self.tool_bar_rebuild_action)
 
@@ -167,17 +188,26 @@ class MainWindow(QMainWindow):
             self.rom_title.setText(self.rom.title)
             self.rom_game_code.setText(self.rom.game_code)
             self.rom_maker_code.setText(self.rom.maker_code)
-            self.rom_data_size.setText('{}/{}'.format(humanize.naturalsize(self.rom.actual_size, gnu=True),
-                                                      humanize.naturalsize(self.rom.path.stat().st_size, gnu=True)))
-            self.rom_secure_area_crc.setText(', '.join((self.rom.secure_area_crc, self.rom.decrypted)))
-            self.rom_header_crc.setText(self.rom.header_crc)
+            self.rom_size.setText(humanize.naturalsize(self.rom.path.stat().st_size, gnu=True))
+            self.rom_secure_area_crc.setText(', '.join(('VALID' if self.rom.is_secure_area_crc_ok else 'INVALID',
+                                                        'DECRYPTED' if self.rom.is_decrypted else 'ENCRYPTED')))
+            self.rom_header_crc.setText('VALID' if self.rom.is_header_crc_ok else 'INVALID')
 
-            self.tool_bar_fix_header_crc_action.setEnabled(self.rom.header_crc != 'OK')
+            self.tool_bar_fix_header_crc_action.setEnabled(not self.rom.is_header_crc_ok)
             self.tool_bar_extract_action.setEnabled(True)
 
     def enable_rebuild_callback(self, future):
         """Enables the rebuild QAction."""
         if not future.exception():
+            self.rom_arm9_size.setText(humanize.naturalsize(self.rom.arm9_bin.stat().st_size, gnu=True))
+            self.rom_arm7_size.setText(humanize.naturalsize(self.rom.arm7_bin.stat().st_size, gnu=True))
+            self.rom_overlay9_size.setText(humanize.naturalsize(self.rom.overlay9_bin.stat().st_size, gnu=True))
+            self.rom_overlay7_size.setText(humanize.naturalsize(self.rom.overlay7_bin.stat().st_size, gnu=True))
+            self.rom_data_size.setText(humanize.naturalsize(self.rom.data_size, gnu=True))
+            self.rom_overlay_size.setText(humanize.naturalsize(self.rom.overlay_size, gnu=True))
+            self.rom_header_size.setText(humanize.naturalsize(self.rom.header_bin.stat().st_size, gnu=True))
+            self.rom_banner_size.setText(humanize.naturalsize(self.rom.banner_bin.stat().st_size, gnu=True))
+
             self.tool_bar_rebuild_action.setEnabled(True)
 
     def info_callback(self, future):
@@ -215,18 +245,22 @@ class MainWindow(QMainWindow):
             future = asyncio.ensure_future(coro)
             future.add_done_callback(self.info_callback)
 
-    def encrypt_nintendo(self):
-        """Encrypt the open ROM (Nintendo)."""
+    def encrypt(self):
+        """Encrypt the open ROM."""
         if isinstance(self.rom, NdsRom):
-            coro = self.ndstools.encrypt_nintendo(self.rom)
+            if self.rom.maker_code == '01':
+                coro = self.ndstools.encrypt_nintendo(self.rom)
+            else:
+                coro = self.ndstools.encrypt_others(self.rom)
             future = asyncio.ensure_future(coro)
             future.add_done_callback(self.info_callback)
 
-    def encrypt_others(self):
-        """Encrypt the open ROM (Others)."""
+    def trim(self):
+        """Trim the open ROM."""
         if isinstance(self.rom, NdsRom):
-            coro = self.ndstools.encrypt_others(self.rom)
-            future = asyncio.ensure_future(coro)
+            extract_coro = self.ndstools.extract(self.rom)
+            rebuild_coro = self.ndstools.extract(self.rom)
+            future = asyncio.gather(extract_coro, rebuild_coro)
             future.add_done_callback(self.info_callback)
 
     def extract(self):
