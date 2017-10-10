@@ -1,8 +1,9 @@
 from setuptools import setup
 
 requirements = [
+    'humanize',
     'PyQt5',
-    'quamash',
+    'Quamash',
 ]
 
 test_requirements = [

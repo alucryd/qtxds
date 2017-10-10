@@ -1,9 +1,7 @@
 import asyncio
+import re
 import shutil
 import subprocess
-
-import re
-
 import sys
 
 
@@ -172,4 +170,3 @@ class NdsTools(Tools):
 class ThreedsTools(Tools):
     def __init__(self, status_bar):
         Tools.__init__(self, '3dstools', status_bar)
-

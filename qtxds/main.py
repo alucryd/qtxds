@@ -309,13 +309,16 @@ class AboutDialog(QDialog):
 
         self.setLayout(self.layout)
 
+
 if __name__ == '__main__':
     sys._excepthook = sys.excepthook
+
 
     def excepthook(error, value, traceback):
         print(error, value, traceback)
         sys._excepthook(error, value, traceback)
         sys.exit(1)
+
 
     sys.excepthook = excepthook
 
@@ -335,5 +338,3 @@ if __name__ == '__main__':
 
     with loop:
         loop.run_forever()
-
-
