@@ -1,13 +1,11 @@
 import asyncio
 import re
 import shutil
-import subprocess
 import sys
 
 
-class Tools:
-    def __init__(self, tool, status_bar):
-        self.status_bar = status_bar
+class Tool:
+    def __init__(self, tool):
         self.path = shutil.which(tool)
 
         if sys.platform == 'win32':
@@ -16,14 +14,13 @@ class Tools:
             self.encoding = 'utf8'
 
 
-class NdsTools(Tools):
-    def __init__(self, status_bar):
-        Tools.__init__(self, 'ndstool', status_bar)
+class NdsTool(Tool):
+    def __init__(self):
+        super().__init__('ndstool')
 
-    async def info(self, rom):
-        self.status_bar.showMessage('Analyzing...')
+    async def info(self, rom, status_bar):
+        status_bar.showMessage('Analyzing...')
 
-        # Get information
         cmd = [str(self.path), '-i', str(rom.path)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
@@ -31,16 +28,16 @@ class NdsTools(Tools):
 
         while True:
             data = await proc.stdout.readline()
-            line = data.decode(self.encoding).rstrip()
+            line = data.decode(self.encoding).strip()
             if line:
                 if line.startswith('0x00'):
                     rom.title = line.split()[-1]
                     continue
-                if line.startswith('0x0C'):
-                    rom.game_code = line.split()[-1][1:-1]
-                    continue
                 if line.startswith('0x10'):
                     rom.maker_code = line.split()[-1][1:-1]
+                    continue
+                if line.startswith('0x0C'):
+                    rom.product_code = line.split()[-1][1:-1]
                     continue
                 if line.startswith('0x6C'):
                     secure_area_crc, decrypted = re.findall('\(.*\)', line)[-1][1:-1].split(', ')
@@ -56,28 +53,27 @@ class NdsTools(Tools):
 
         await proc.wait()
 
-        # Get actual size
         cmd = [str(self.path), '-l', str(rom.path)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
         proc = await create
 
-        rom.actual_size = 0
+        rom.content_size = 0
         while True:
             data = await proc.stdout.readline()
             line = data.decode(self.encoding).strip()
             if line:
                 if line[0].isdigit():
-                    rom.actual_size += int(line.split()[3])
+                    rom.content_size += int(line.split()[3])
             else:
                 break
 
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def fix_header_crc(self, rom):
-        self.status_bar.showMessage('Fixing Header CRC...')
+    async def fix_header_crc(self, rom, status_bar):
+        status_bar.showMessage('Fixing Header CRC...')
 
         cmd = [str(self.path), '-f', str(rom.path)]
 
@@ -85,10 +81,10 @@ class NdsTools(Tools):
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def encrypt_nintendo(self, rom):
-        self.status_bar.showMessage('Encrypting (Nintendo)...')
+    async def encrypt_nintendo(self, rom, status_bar):
+        status_bar.showMessage('Encrypting (Nintendo)...')
 
         cmd = [str(self.path), '-se', str(rom.path)]
 
@@ -96,10 +92,10 @@ class NdsTools(Tools):
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def encrypt_others(self, rom):
-        self.status_bar.showMessage('Encrypting (others)...')
+    async def encrypt_others(self, rom, status_bar):
+        status_bar.showMessage('Encrypting (others)...')
 
         cmd = [str(self.path), '-sE', str(rom.path)]
 
@@ -107,10 +103,10 @@ class NdsTools(Tools):
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def decrypt(self, rom):
-        self.status_bar.showMessage('Decrypting...')
+    async def decrypt(self, rom, status_bar):
+        status_bar.showMessage('Decrypting...')
 
         cmd = [str(self.path), '-sd', str(rom.path)]
 
@@ -118,12 +114,12 @@ class NdsTools(Tools):
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def extract(self, rom):
-        self.status_bar.showMessage('Extracting...')
+    async def extract(self, rom, status_bar):
+        status_bar.showMessage('Extracting...')
 
-        (rom.extract_dir / rom.path.stem).mkdir(exist_ok=True)
+        rom.extract_dir.mkdir(exist_ok=True)
 
         cmd = [str(self.path), '-x', str(rom.path)]
         cmd += ['-9', str(rom.arm9_bin)]
@@ -135,20 +131,16 @@ class NdsTools(Tools):
         cmd += ['-t', str(rom.banner_bin)]
         cmd += ['-h', str(rom.header_bin)]
 
-        create = asyncio.create_subprocess_exec(*cmd, stdout=subprocess.DEVNULL)
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
-    async def rebuild(self, rom):
-        self.status_bar.showMessage('Rebuilding...')
+    async def rebuild(self, rom, status_bar):
+        rom.backup(status_bar)
 
-        # Backup original ROM
-        src = rom.path
-        dst = rom.path.with_suffix('.nds.old')
-        if not dst.exists():
-            shutil.copyfile(src, dst)
+        status_bar.showMessage('Rebuilding...')
 
         cmd = [str(self.path), '-c', str(rom.path)]
         cmd += ['-9', str(rom.arm9_bin)]
@@ -160,13 +152,211 @@ class NdsTools(Tools):
         cmd += ['-t', str(rom.banner_bin)]
         cmd += ['-h', str(rom.header_bin)]
 
-        create = asyncio.create_subprocess_exec(*cmd, stdout=subprocess.DEVNULL)
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
 
-        self.status_bar.showMessage('Ready')
+        status_bar.showMessage('Ready')
 
 
-class ThreedsTools(Tools):
-    def __init__(self, status_bar):
-        Tools.__init__(self, '3dstools', status_bar)
+class ThreedsTool(Tool):
+    def __init__(self):
+        Tool.__init__(self, '3dstool')
+
+    async def extract(self, rom, status_bar):
+        status_bar.showMessage('Extracting CCI...')
+
+        rom.extract_dir.mkdir(exist_ok=True)
+
+        cmd = [str(self.path), '-x']
+        cmd += ['-f', str(rom.path)]
+        cmd += ['-t', 'cci']
+        cmd += ['--header', str(rom.ncsd_header_bin)]
+        cmd += ['-0', str(rom.game_cxi)]
+        cmd += ['-1', str(rom.manual_cfa)]
+        cmd += ['-2', str(rom.download_play_cfa)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Extracting CXI...')
+
+        cmd = [str(self.path), '-x']
+        cmd += ['-f', str(rom.game_cxi)]
+        cmd += ['-t', 'cxi']
+        cmd += ['--header', str(rom.ncch_header_bin)]
+        cmd += ['--exh', str(rom.extended_header_bin)]
+        cmd += ['--plain', str(rom.plain_bin)]
+        cmd += ['--logo', str(rom.logo_bin)]
+        cmd += ['--exefs', str(rom.exefs_bin)]
+        cmd += ['--romfs', str(rom.romfs_bin)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Extracting ExeFS...')
+
+        cmd = [str(self.path), '-x']
+        cmd += ['-f', str(rom.exefs_bin)]
+        cmd += ['-t', 'exefs']
+        cmd += ['--header', str(rom.exefs_header_bin)]
+        cmd += ['--exefs-dir', str(rom.exefs_dir)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Extracting RomFS...')
+
+        cmd = [str(self.path), '-x']
+        cmd += ['-f', str(rom.romfs_bin)]
+        cmd += ['-t', 'romfs']
+        cmd += ['--romfs-dir', str(rom.romfs_dir)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Ready')
+
+    async def rebuild(self, rom, status_bar):
+        rom.backup(status_bar)
+
+        status_bar.showMessage('Rebuilding RomFS...')
+
+        cmd = [str(self.path), '-c']
+        cmd += ['-f', str(rom.romfs_bin)]
+        cmd += ['-t', 'romfs']
+        cmd += ['--romfs-dir', str(rom.romfs_dir)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Rebuilding ExeFS...')
+
+        cmd = [str(self.path), '-c']
+        cmd += ['-f', str(rom.exefs_bin)]
+        cmd += ['-t', 'exefs']
+        cmd += ['--header', str(rom.exefs_header_bin)]
+        cmd += ['--exefs-dir', str(rom.exefs_dir)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Rebuilding CXI...')
+
+        cmd = [str(self.path), '-c']
+        cmd += ['-f', str(rom.game_cxi)]
+        cmd += ['-t', 'cxi']
+        cmd += ['--header', str(rom.ncch_header_bin)]
+        cmd += ['--exh', str(rom.extended_header_bin)]
+        cmd += ['--plain', str(rom.plain_bin)]
+        cmd += ['--logo', str(rom.logo_bin)]
+        cmd += ['--exefs', str(rom.exefs_bin)]
+        cmd += ['--romfs', str(rom.romfs_bin)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Rebuilding CCI...')
+
+        rom.extract_dir.mkdir(exist_ok=True)
+
+        cmd = [str(self.path), '-c']
+        cmd += ['-f', str(rom.path)]
+        cmd += ['-t', 'cci']
+        cmd += ['--header', str(rom.ncsd_header_bin)]
+        cmd += ['-0', str(rom.game_cxi)]
+        cmd += ['-1', str(rom.manual_cfa)]
+        cmd += ['-2', str(rom.download_play_cfa)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Ready')
+
+    async def trim(self, rom, status_bar):
+        rom.backup(status_bar)
+
+        status_bar.showMessage('Trimming...')
+
+        cmd = [str(self.path), '-r']
+        cmd += ['-f', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Ready')
+
+    async def pad(self, rom, status_bar):
+        rom.backup(status_bar)
+
+        status_bar.showMessage('Padding...')
+
+        cmd = [str(self.path), '-p']
+        cmd += ['-f', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+        status_bar.showMessage('Ready')
+
+
+class CtrTool(Tool):
+    def __init__(self):
+        Tool.__init__(self, 'ctrtool')
+
+    async def info(self, rom, status_bar):
+        status_bar.showMessage('Analyzing...')
+
+        cmd = [str(self.path), '-i', str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
+        proc = await create
+
+        while not proc.stdout.at_eof():
+            data = await proc.stdout.readline()
+            line = data.decode(self.encoding).strip()
+            if line:
+                if line.startswith('Media size:'):
+                    rom.media_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('> Mediaunit size:'):
+                    rom.media_unit_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('Maker code:'):
+                    rom.maker_code = line.split(':')[-1].strip()
+                    continue
+                if line.startswith('Product code:'):
+                    rom.product_code = line.split(':')[-1].strip()
+                    continue
+                if line.startswith('Content size:'):
+                    rom.content_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('Exheader size:'):
+                    rom.exheader_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('Plain region size:'):
+                    rom.plain_region_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('Logo size:'):
+                    rom.logo_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('ExeFS size:'):
+                    rom.exefs_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+                if line.startswith('RomFS size:'):
+                    rom.romfs_size = int(line.split(':')[-1].strip(), 16)
+                    continue
+
+        await proc.wait()
+
+        status_bar.showMessage('Ready')
