@@ -4,7 +4,7 @@ from pathlib import Path
 
 import humanize
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow, QToolBar,
+from PyQt5.QtWidgets import (QAction, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QMainWindow,
                              QVBoxLayout, QDesktopWidget, QGridLayout, QGroupBox, QLineEdit)
 from quamash import QEventLoop
 
@@ -18,11 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         """Initialize the components of the main window."""
         super(MainWindow, self).__init__(parent)
-        # self.resize(640, 480)
         self.setWindowTitle('qtxds')
-        # window_icon = pkg_resources.resource_filename('qtxds.images',
-        #                                               'ic_insert_drive_file_black_48dp_1x.png')
-        # self.setWindowIcon(QIcon(window_icon))
 
         self.main_grid()
         self.setCentralWidget(self.rom_group_box)
@@ -34,9 +30,13 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage('Ready')
 
         self.file_menu()
+        self.extract_menu()
+        self.rebuild_menu()
+        self.convert_menu()
+        self.encryption_menu()
+        self.padding_menu()
+        self.misc_menu()
         self.help_menu()
-
-        self.tool_bar_items()
 
         self.rom = None
         self.ndstool = NdsTool()
@@ -78,6 +78,13 @@ class MainWindow(QMainWindow):
         self.rom_banner_size = QLabel()
         self.rom_header_size = QLabel()
 
+        # 3DS Content
+        self.rom_extended_header_size = QLabel()
+        self.rom_plain_size = QLabel()
+        self.rom_logo_size = QLabel()
+        self.rom_exefs_size = QLabel()
+        self.rom_romfs_size = QLabel()
+
         info_grid_layout.addWidget(QLabel('Title'), 0, 0)
         info_grid_layout.addWidget(self.rom_title, 0, 1)
         info_grid_layout.addWidget(QLabel('Maker Code'), 1, 0)
@@ -110,8 +117,20 @@ class MainWindow(QMainWindow):
         nds_content_grid_layout.addWidget(QLabel('Header'), 7, 0)
         nds_content_grid_layout.addWidget(self.rom_header_size, 7, 1)
 
+        threeds_content_grid_layout.addWidget(QLabel('Extended Header'), 0, 0)
+        threeds_content_grid_layout.addWidget(self.rom_extended_header_size, 0, 1)
+        threeds_content_grid_layout.addWidget(QLabel('Plain Region'), 1, 0)
+        threeds_content_grid_layout.addWidget(self.rom_plain_size, 1, 1)
+        threeds_content_grid_layout.addWidget(QLabel('Logo Region'), 2, 0)
+        threeds_content_grid_layout.addWidget(self.rom_logo_size, 2, 1)
+        threeds_content_grid_layout.addWidget(QLabel('ExeFS'), 3, 0)
+        threeds_content_grid_layout.addWidget(self.rom_exefs_size, 3, 1)
+        threeds_content_grid_layout.addWidget(QLabel('RomFS'), 4, 0)
+        threeds_content_grid_layout.addWidget(self.rom_romfs_size, 4, 1)
+
         info_group_box.setLayout(info_grid_layout)
         nds_content_group_box.setLayout(nds_content_grid_layout)
+        threeds_content_group_box.setLayout(threeds_content_grid_layout)
 
         hbox_layout.addWidget(info_group_box)
         hbox_layout.addWidget(nds_content_group_box)
@@ -119,11 +138,11 @@ class MainWindow(QMainWindow):
         self.rom_group_box.setLayout(hbox_layout)
 
     def file_menu(self):
-        """Create a file submenu with an Open File item that opens a file dialog."""
+        """Create a file submenu with an Open ROM item that opens a file dialog."""
         self.file_sub_menu = self.menu_bar.addMenu('File')
 
-        self.open_action = QAction('Open File', self)
-        self.open_action.setStatusTip('Open a file into qtxds.')
+        self.open_action = QAction('Open ROM', self)
+        self.open_action.setStatusTip('Open a ROM into qtxds.')
         self.open_action.setShortcut('CTRL+O')
         self.open_action.triggered.connect(self.open_file)
 
@@ -134,6 +153,136 @@ class MainWindow(QMainWindow):
 
         self.file_sub_menu.addAction(self.open_action)
         self.file_sub_menu.addAction(self.exit_action)
+
+    def extract_menu(self):
+        """Create an extract submenu with various extract actions."""
+        self.extract_sub_menu = self.menu_bar.addMenu('Extract')
+
+        self.extract_all_action = QAction('Extract all', self)
+        self.extract_all_action.setStatusTip('Extract the open ROM.')
+        self.extract_all_action.setShortcut('CTRL+E')
+        self.extract_all_action.triggered.connect(self.extract_all)
+        self.extract_all_action.setEnabled(False)
+
+        self.extract_cci_action = QAction('Extract CCI', self)
+        self.extract_cci_action.setStatusTip('Extract the NCSD contents of the open ROM.')
+        self.extract_cci_action.triggered.connect(self.extract_cci)
+        self.extract_cci_action.setEnabled(False)
+
+        self.extract_cxi_action = QAction('Extract CXI', self)
+        self.extract_cxi_action.setStatusTip('Extract the NCCH contents of the open ROM.')
+        self.extract_cxi_action.triggered.connect(self.extract_cxi)
+        self.extract_cxi_action.setEnabled(False)
+
+        self.extract_exefs_action = QAction('Extract ExeFS', self)
+        self.extract_exefs_action.setStatusTip('Extract the ExeFS contents of the open ROM.')
+        self.extract_exefs_action.triggered.connect(self.extract_exefs)
+        self.extract_exefs_action.setEnabled(False)
+
+        self.extract_romfs_action = QAction('Extract RomFS', self)
+        self.extract_romfs_action.setStatusTip('Extract the RomFS contents of the open ROM.')
+        self.extract_romfs_action.triggered.connect(self.extract_romfs)
+        self.extract_romfs_action.setEnabled(False)
+
+        self.extract_sub_menu.addAction(self.extract_all_action)
+        self.extract_sub_menu.addAction(self.extract_cci_action)
+        self.extract_sub_menu.addAction(self.extract_cxi_action)
+        self.extract_sub_menu.addAction(self.extract_exefs_action)
+        self.extract_sub_menu.addAction(self.extract_romfs_action)
+
+    def rebuild_menu(self):
+        """Create a rebuild submenu with various rebuild actions."""
+        self.rebuild_sub_menu = self.menu_bar.addMenu('Rebuild')
+
+        self.rebuild_all_action = QAction('Rebuild all', self)
+        self.rebuild_all_action.setStatusTip('Rebuild all contents of the open ROM.')
+        self.rebuild_all_action.setShortcut('CTRL+R')
+        self.rebuild_all_action.triggered.connect(self.rebuild_all)
+        self.rebuild_all_action.setEnabled(False)
+
+        self.rebuild_cci_action = QAction('Rebuild CCI', self)
+        self.rebuild_cci_action.setStatusTip('Rebuild the NCSD contents of the open ROM.')
+        self.rebuild_cci_action.triggered.connect(self.rebuild_cci)
+        self.rebuild_cci_action.setEnabled(False)
+
+        self.rebuild_cxi_action = QAction('Rebuild CXI', self)
+        self.rebuild_cxi_action.setStatusTip('Rebuild the NCCH contents of the open ROM.')
+        self.rebuild_cxi_action.triggered.connect(self.rebuild_cxi)
+        self.rebuild_cxi_action.setEnabled(False)
+
+        self.rebuild_exefs_action = QAction('Rebuild ExeFS', self)
+        self.rebuild_exefs_action.setStatusTip('Rebuild the ExeFS contents of the open ROM.')
+        self.rebuild_exefs_action.triggered.connect(self.rebuild_exefs)
+        self.rebuild_exefs_action.setEnabled(False)
+
+        self.rebuild_romfs_action = QAction('Rebuild RomFS', self)
+        self.rebuild_romfs_action.setStatusTip('Rebuild the RomFS contents of the open ROM.')
+        self.rebuild_romfs_action.triggered.connect(self.rebuild_romfs)
+        self.rebuild_romfs_action.setEnabled(False)
+
+        self.rebuild_sub_menu.addAction(self.rebuild_all_action)
+        self.rebuild_sub_menu.addAction(self.rebuild_cci_action)
+        self.rebuild_sub_menu.addAction(self.rebuild_cxi_action)
+        self.rebuild_sub_menu.addAction(self.rebuild_exefs_action)
+        self.rebuild_sub_menu.addAction(self.rebuild_romfs_action)
+
+    def convert_menu(self):
+        """Create a convert submenu with various convert actions."""
+        self.convert_sub_menu = self.menu_bar.addMenu('Convert')
+
+        self.convert_cia_action = QAction('Convert to CIA', self)
+        self.convert_cia_action.setStatusTip('Convert the open ROM to the CIA format.')
+        self.convert_cia_action.triggered.connect(self.convert_cia)
+        self.convert_cia_action.setEnabled(False)
+
+        self.convert_sub_menu.addAction(self.convert_cia_action)
+
+    def encryption_menu(self):
+        """Create an encryption submenu with decrypt and encrypt actions."""
+        self.encryption_sub_menu = self.menu_bar.addMenu('Encryption')
+
+        self.decrypt_action = QAction('Decrypt', self)
+        self.decrypt_action.setStatusTip('Decrypt the open ROM.')
+        self.decrypt_action.triggered.connect(self.decrypt)
+        self.decrypt_action.setEnabled(False)
+
+        self.encrypt_action = QAction('Encrypt', self)
+        self.encrypt_action.setStatusTip('Encrypt the open ROM.')
+        self.encrypt_action.triggered.connect(self.encrypt)
+        self.encrypt_action.setEnabled(False)
+
+        self.encryption_sub_menu.addAction(self.decrypt_action)
+        self.encryption_sub_menu.addAction(self.encrypt_action)
+
+    def padding_menu(self):
+        """Create a padding submenu with trim and pad actions."""
+        self.padding_sub_menu = self.menu_bar.addMenu('Padding')
+
+        self.trim_action = QAction('Trim', self)
+        self.trim_action.setStatusTip('Trim the open ROM.')
+        self.trim_action.setShortcut('CTRL+T')
+        self.trim_action.triggered.connect(self.trim)
+        self.trim_action.setEnabled(False)
+
+        self.pad_action = QAction('Pad', self)
+        self.pad_action.setStatusTip('Pad the open ROM.')
+        self.pad_action.setShortcut('CTRL+P')
+        self.pad_action.triggered.connect(self.pad)
+        self.pad_action.setEnabled(False)
+
+        self.padding_sub_menu.addAction(self.trim_action)
+        self.padding_sub_menu.addAction(self.pad_action)
+
+    def misc_menu(self):
+        """Create a misc submenu with various actions."""
+        self.misc_sub_menu = self.menu_bar.addMenu('Misc')
+
+        self.fix_header_crc_action = QAction('Fix Header CRC', self)
+        self.fix_header_crc_action.setStatusTip('Fix the open ROM\'s header CRC.')
+        self.fix_header_crc_action.triggered.connect(self.fix_header_crc)
+        self.fix_header_crc_action.setEnabled(False)
+
+        self.misc_sub_menu.addAction(self.fix_header_crc_action)
 
     def help_menu(self):
         """Create a help submenu with an About item tha opens an about dialog."""
@@ -146,51 +295,7 @@ class MainWindow(QMainWindow):
 
         self.help_sub_menu.addAction(self.about_action)
 
-    def tool_bar_items(self):
-        """Create a tool bar for the main window."""
-        self.tool_bar = QToolBar()
-        self.addToolBar(Qt.TopToolBarArea, self.tool_bar)
-        self.tool_bar.setMovable(False)
-
-        # open_icon = pkg_resources.resource_filename('qtxds.images',
-        #                                             'ic_open_in_new_black_48dp_1x.png')
-        self.tool_bar_fix_header_crc_action = QAction('Fix Header CRC', self)
-        self.tool_bar_fix_header_crc_action.triggered.connect(self.fix_header_crc)
-        self.tool_bar_fix_header_crc_action.setEnabled(False)
-
-        self.tool_bar_decrypt_action = QAction('Decrypt', self)
-        self.tool_bar_decrypt_action.triggered.connect(self.decrypt)
-        self.tool_bar_decrypt_action.setEnabled(False)
-
-        self.tool_bar_encrypt_action = QAction('Encrypt', self)
-        self.tool_bar_encrypt_action.triggered.connect(self.encrypt)
-        self.tool_bar_encrypt_action.setEnabled(False)
-
-        self.tool_bar_trim_action = QAction('Trim', self)
-        self.tool_bar_trim_action.triggered.connect(self.trim)
-        self.tool_bar_trim_action.setEnabled(False)
-
-        self.tool_bar_pad_action = QAction('Pad', self)
-        self.tool_bar_pad_action.triggered.connect(self.pad)
-        self.tool_bar_pad_action.setEnabled(False)
-
-        self.tool_bar_extract_action = QAction('Extract', self)
-        self.tool_bar_extract_action.triggered.connect(self.extract)
-        self.tool_bar_extract_action.setEnabled(False)
-
-        self.tool_bar_rebuild_action = QAction('Rebuild', self)
-        self.tool_bar_rebuild_action.triggered.connect(self.rebuild)
-        self.tool_bar_rebuild_action.setEnabled(False)
-
-        self.tool_bar.addAction(self.tool_bar_fix_header_crc_action)
-        self.tool_bar.addAction(self.tool_bar_decrypt_action)
-        self.tool_bar.addAction(self.tool_bar_encrypt_action)
-        self.tool_bar.addAction(self.tool_bar_trim_action)
-        self.tool_bar.addAction(self.tool_bar_pad_action)
-        self.tool_bar.addAction(self.tool_bar_extract_action)
-        self.tool_bar.addAction(self.tool_bar_rebuild_action)
-
-    def enable_functions_callback(self, future):
+    def open_file_callback(self, future):
         """Callback for opening a ROM."""
         if not future.exception():
             self.rom_title.setText(self.rom.title)
@@ -198,22 +303,46 @@ class MainWindow(QMainWindow):
             self.rom_maker_code.setText(self.rom.maker_code)
             self.rom_size.setText(humanize.naturalsize(self.rom.size, gnu=True))
             self.rom_content_size.setText(humanize.naturalsize(self.rom.content_size, gnu=True))
-            self.tool_bar_extract_action.setEnabled(True)
-            self.tool_bar_trim_action.setEnabled(True)
+            self.extract_all_action.setEnabled(True)
+            self.extract_cci_action.setEnabled(isinstance(self.rom, ThreedsRom))
+            self.convert_cia_action.setEnabled(isinstance(self.rom, ThreedsRom))
+            self.trim_action.setEnabled(True)
+            self.pad_action.setEnabled(isinstance(self.rom, ThreedsRom))
             if isinstance(self.rom, NdsRom):
                 self.rom_secure_area_crc.setText(', '.join(('VALID' if self.rom.is_secure_area_crc_ok else 'INVALID',
                                                             'DECRYPTED' if self.rom.is_decrypted else 'ENCRYPTED')))
                 self.rom_header_crc.setText('VALID' if self.rom.is_header_crc_ok else 'INVALID')
-
-                self.tool_bar_fix_header_crc_action.setEnabled(not self.rom.is_header_crc_ok)
+                self.rom_extended_header_size.setText('')
+                self.rom_plain_size.setText('')
+                self.rom_logo_size.setText('')
+                self.rom_exefs_size.setText('')
+                self.rom_romfs_size.setText('')
+                self.fix_header_crc_action.setEnabled(not self.rom.is_header_crc_ok)
             elif isinstance(self.rom, ThreedsRom):
-                self.tool_bar_pad_action.setEnabled(True)
                 self.rom_secure_area_crc.setText('')
                 self.rom_header_crc.setText('')
+                self.rom_arm9_size.setText('')
+                self.rom_arm7_size.setText('')
+                self.rom_overlay9_size.setText('')
+                self.rom_overlay7_size.setText('')
+                self.rom_data_size.setText('')
+                self.rom_overlay_size.setText('')
+                self.rom_banner_size.setText('')
+                self.rom_header_size.setText('')
+                self.rom_extended_header_size.setText(humanize.naturalsize(self.rom.extended_header_size, gnu=True))
+                self.rom_plain_size.setText(humanize.naturalsize(self.rom.plain_size, gnu=True))
+                self.rom_logo_size.setText(humanize.naturalsize(self.rom.logo_size, gnu=True))
+                self.rom_exefs_size.setText(humanize.naturalsize(self.rom.exefs_size, gnu=True))
+                self.rom_romfs_size.setText(humanize.naturalsize(self.rom.romfs_size, gnu=True))
+        else:
+            self.status_bar.showMessage('Error')
 
-    def enable_rebuild_callback(self, future):
+        self.status_bar.showMessage('Ready')
+
+    def enable_rebuild_all_callback(self, future):
         """Enables the rebuild QAction."""
         if not future.exception():
+            self.rebuild_all_action.setEnabled(True)
             if isinstance(self.rom, NdsRom):
                 self.rom_arm9_size.setText(humanize.naturalsize(self.rom.arm9_bin.stat().st_size, gnu=True))
                 self.rom_arm7_size.setText(humanize.naturalsize(self.rom.arm7_bin.stat().st_size, gnu=True))
@@ -223,15 +352,68 @@ class MainWindow(QMainWindow):
                 self.rom_overlay_size.setText(humanize.naturalsize(self.rom.overlay_size, gnu=True))
                 self.rom_header_size.setText(humanize.naturalsize(self.rom.header_bin.stat().st_size, gnu=True))
                 self.rom_banner_size.setText(humanize.naturalsize(self.rom.banner_bin.stat().st_size, gnu=True))
+            elif isinstance(self.rom, ThreedsRom):
+                self.extract_cxi_action.setEnabled(True)
+                self.extract_exefs_action.setEnabled(True)
+                self.extract_romfs_action.setEnabled(True)
+                self.rebuild_cci_action.setEnabled(True)
+                self.rebuild_cxi_action.setEnabled(True)
+                self.rebuild_exefs_action.setEnabled(True)
+                self.rebuild_romfs_action.setEnabled(True)
+        else:
+            self.status_bar.showMessage('Error')
 
-            self.tool_bar_rebuild_action.setEnabled(True)
+        self.status_bar.showMessage('Ready')
 
     def info_callback(self, future):
         """Refresh ROM information."""
         if not future.exception():
             coro = self.rom.info(self.status_bar)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_functions_callback)
+            future.add_done_callback(self.open_file_callback)
+        else:
+            self.status_bar.showMessage('Error')
+
+        self.status_bar.showMessage('Ready')
+
+    def extract_cci_callback(self, future):
+        """Callback for the Extract CCI action."""
+        if not future.exception():
+            self.rebuild_cci_action.setEnabled(True)
+            self.extract_cxi_action.setEnabled(True)
+        else:
+            self.status_bar.showMessage('Error')
+
+        self.status_bar.showMessage('Ready')
+
+    def extract_cxi_callback(self, future):
+        """Callback for the Extract CXI action."""
+        if not future.exception():
+            self.rebuild_cxi_action.setEnabled(True)
+            self.extract_exefs_action.setEnabled(True)
+            self.extract_romfs_action.setEnabled(True)
+        else:
+            self.status_bar.showMessage('Error')
+
+        self.status_bar.showMessage('Ready')
+
+    def extract_exefs_callback(self, future):
+        """Callback for the Extract ExeFS action."""
+        if not future.exception():
+            self.rebuild_exefs_action.setEnabled(True)
+        else:
+            self.status_bar.showMessage('Error')
+
+        self.status_bar.showMessage('Ready')
+
+    def extract_romfs_callback(self, future):
+        """Callback for the Extract RomFS action."""
+        if not future.exception():
+            self.rebuild_romfs_action.setEnabled(True)
+        else:
+            self.status_bar.showMessage('Error')
+
+        self.status_bar.showMessage('Ready')
 
     def open_file(self):
         """Open a QFileDialog to allow the user to open a file into the application."""
@@ -239,7 +421,23 @@ class MainWindow(QMainWindow):
 
         if accepted:
             path = Path(filename)
-            self.tool_bar_rebuild_action.setEnabled(False)
+            for action in (
+                    'extract_cci',
+                    'extract_cxi',
+                    'extract_exefs',
+                    'extract_romfs',
+                    'rebuild_all',
+                    'rebuild_cci',
+                    'rebuild_cxi',
+                    'rebuild_exefs',
+                    'rebuild_romfs',
+                    'decrypt',
+                    'encrypt',
+                    'trim',
+                    'pad',
+                    'fix_header_crc'
+            ):
+                getattr(self, f'{action}_action').setEnabled(False)
             if path.suffix == '.nds':
                 self.rom = NdsRom(path)
             elif path.suffix == '.3ds':
@@ -247,31 +445,19 @@ class MainWindow(QMainWindow):
             if self.rom:
                 coro = self.rom.info(self.status_bar)
                 future = asyncio.ensure_future(coro)
-                future.add_done_callback(self.enable_functions_callback)
-
-    def fix_header_crc(self):
-        """Fix the open ROM's header's CRC."""
-        if isinstance(self.rom, NdsRom):
-            coro = self.ndstool.fix_header_crc(self.rom)
-            future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.info_callback)
+                future.add_done_callback(self.open_file_callback)
 
     def decrypt(self):
         """Decrypt the open ROM."""
-        if isinstance(self.rom, NdsRom):
-            coro = self.ndstool.decrypt(self.rom)
-            future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.info_callback)
+        coro = self.rom.decrypt(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
 
     def encrypt(self):
         """Encrypt the open ROM."""
-        if isinstance(self.rom, NdsRom):
-            if self.rom.maker_code == '01':
-                coro = self.ndstool.encrypt_nintendo(self.rom)
-            else:
-                coro = self.ndstool.encrypt_others(self.rom)
-            future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.info_callback)
+        coro = self.rom.encrypt(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
 
     def trim(self):
         """Trim the open ROM."""
@@ -285,19 +471,84 @@ class MainWindow(QMainWindow):
         future = asyncio.ensure_future(coro)
         future.add_done_callback(self.info_callback)
 
-    def extract(self):
+    def extract_all(self):
         """Extract the open ROM."""
-        dirname = QFileDialog().getExistingDirectory(self, 'Open File', str(self.rom.extract_root))
+        dirname = QFileDialog().getExistingDirectory(self, 'Open Directory', str(self.rom.working_dir))
 
         if dirname:
-            self.rom.extract_root = Path(dirname)
-            coro = self.rom.extract(self.status_bar)
+            self.rom.working_dir = Path(dirname)
+            coro = self.rom.extract_all(self.status_bar)
             future = asyncio.ensure_future(coro)
-            future.add_done_callback(self.enable_rebuild_callback)
+            future.add_done_callback(self.enable_rebuild_all_callback)
 
-    def rebuild(self):
+    def extract_cci(self):
+        """Extract the NCSD contents of the open ROM."""
+        coro = self.rom.extract_cci(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.extract_cci_callback)
+
+    def extract_cxi(self):
+        """Extract the NCCH contents of the open ROM."""
+        coro = self.rom.extract_cxi(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.extract_cxi_callback)
+
+    def extract_exefs(self):
+        """Extract the ExeFS contents of the open ROM."""
+        coro = self.rom.extract_exefs(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.extract_exefs_callback)
+
+    def extract_romfs(self):
+        """Extract the RomFS contents of the open ROM."""
+        coro = self.rom.extract_romfs(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.extract_romfs_callback)
+
+    def rebuild_all(self):
         """Rebuild the open ROM."""
         coro = self.rom.rebuild(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
+
+    def rebuild_cci(self):
+        """Rebuild the NCSD contents of the open ROM."""
+        coro = self.rom.rebuild_cci(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
+
+    def rebuild_cxi(self):
+        """Rebuild the NCCH contents of the open ROM."""
+        coro = self.rom.rebuild_cxi(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
+
+    def rebuild_exefs(self):
+        """Rebuild the ExeFS contents of the open ROM."""
+        coro = self.rom.rebuild_exefs(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
+
+    def rebuild_romfs(self):
+        """Rebuild the RomFS contents of the open ROM."""
+        coro = self.rom.rebuild_romfs(self.status_bar)
+        future = asyncio.ensure_future(coro)
+        future.add_done_callback(self.info_callback)
+
+    def convert_cia(self):
+        """Convert the open ROM to the CIA format."""
+        dirname = QFileDialog().getExistingDirectory(self, 'Open Directory', str(self.rom.working_dir))
+
+        if dirname:
+            print(dirname)
+            self.rom.working_dir = Path(dirname)
+            coro = self.rom.convert_cia(self.status_bar)
+            future = asyncio.ensure_future(coro)
+            future.add_done_callback(self.info_callback)
+
+    def fix_header_crc(self):
+        """Fix the open ROM's header CRC."""
+        coro = self.ndstool.fix_header_crc(self.rom)
         future = asyncio.ensure_future(coro)
         future.add_done_callback(self.info_callback)
 
@@ -345,8 +596,6 @@ if __name__ == '__main__':
     application = QApplication(sys.argv)
     loop = QEventLoop(application)
     loop.set_debug(True)
-    # executor = QThreadExecutor(1)
-    # loop.set_default_executor(executor)
     asyncio.set_event_loop(loop)
 
     window = MainWindow()

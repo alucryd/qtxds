@@ -34,7 +34,7 @@ class NdsTool(Tool):
                     rom.title = line.split()[-1]
                     continue
                 if line.startswith('0x10'):
-                    rom.maker_code = line.split()[-1][1:-1]
+                    rom.maker_code = line.split()[3]
                     continue
                 if line.startswith('0x0C'):
                     rom.product_code = line.split()[-1][1:-1]
@@ -70,8 +70,6 @@ class NdsTool(Tool):
 
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
     async def fix_header_crc(self, rom, status_bar):
         status_bar.showMessage('Fixing Header CRC...')
 
@@ -80,8 +78,6 @@ class NdsTool(Tool):
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
-
-        status_bar.showMessage('Ready')
 
     async def encrypt_nintendo(self, rom, status_bar):
         status_bar.showMessage('Encrypting (Nintendo)...')
@@ -92,8 +88,6 @@ class NdsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
     async def encrypt_others(self, rom, status_bar):
         status_bar.showMessage('Encrypting (others)...')
 
@@ -102,8 +96,6 @@ class NdsTool(Tool):
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
-
-        status_bar.showMessage('Ready')
 
     async def decrypt(self, rom, status_bar):
         status_bar.showMessage('Decrypting...')
@@ -114,9 +106,7 @@ class NdsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
-    async def extract(self, rom, status_bar):
+    async def extract_all(self, rom, status_bar):
         status_bar.showMessage('Extracting...')
 
         rom.extract_dir.mkdir(exist_ok=True)
@@ -135,9 +125,7 @@ class NdsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
-    async def rebuild(self, rom, status_bar):
+    async def rebuild_all(self, rom, status_bar):
         rom.backup(status_bar)
 
         status_bar.showMessage('Rebuilding...')
@@ -156,14 +144,12 @@ class NdsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
 
 class ThreedsTool(Tool):
     def __init__(self):
         Tool.__init__(self, '3dstool')
 
-    async def extract(self, rom, status_bar):
+    async def extract_cci(self, rom, status_bar):
         status_bar.showMessage('Extracting CCI...')
 
         rom.extract_dir.mkdir(exist_ok=True)
@@ -180,6 +166,7 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
+    async def extract_cxi(self, rom, status_bar):
         status_bar.showMessage('Extracting CXI...')
 
         cmd = [str(self.path), '-x']
@@ -196,6 +183,7 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
+    async def extract_exefs(self, rom, status_bar):
         status_bar.showMessage('Extracting ExeFS...')
 
         cmd = [str(self.path), '-x']
@@ -208,6 +196,7 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
+    async def extract_romfs(self, rom, status_bar):
         status_bar.showMessage('Extracting RomFS...')
 
         cmd = [str(self.path), '-x']
@@ -219,34 +208,30 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
+    async def extract_all(self, rom, status_bar):
+        await self.extract_cci(rom, status_bar)
+        await self.extract_cxi(rom, status_bar)
+        await self.extract_exefs(rom, status_bar)
+        await self.extract_romfs(rom, status_bar)
 
-    async def rebuild(self, rom, status_bar):
+    async def rebuild_cci(self, rom, status_bar):
         rom.backup(status_bar)
 
-        status_bar.showMessage('Rebuilding RomFS...')
+        status_bar.showMessage('Rebuilding CCI...')
 
         cmd = [str(self.path), '-c']
-        cmd += ['-f', str(rom.romfs_bin)]
-        cmd += ['-t', 'romfs']
-        cmd += ['--romfs-dir', str(rom.romfs_dir)]
+        cmd += ['-f', str(rom.path)]
+        cmd += ['-t', 'cci']
+        cmd += ['--header', str(rom.ncsd_header_bin)]
+        cmd += ['-0', str(rom.game_cxi)]
+        cmd += ['-1', str(rom.manual_cfa)]
+        cmd += ['-2', str(rom.download_play_cfa)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Rebuilding ExeFS...')
-
-        cmd = [str(self.path), '-c']
-        cmd += ['-f', str(rom.exefs_bin)]
-        cmd += ['-t', 'exefs']
-        cmd += ['--header', str(rom.exefs_header_bin)]
-        cmd += ['--exefs-dir', str(rom.exefs_dir)]
-
-        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
-        proc = await create
-        await proc.wait()
-
+    async def rebuild_cxi(self, rom, status_bar):
         status_bar.showMessage('Rebuilding CXI...')
 
         cmd = [str(self.path), '-c']
@@ -263,23 +248,36 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Rebuilding CCI...')
-
-        rom.extract_dir.mkdir(exist_ok=True)
+    async def rebuild_exefs(self, rom, status_bar):
+        status_bar.showMessage('Rebuilding ExeFS...')
 
         cmd = [str(self.path), '-c']
-        cmd += ['-f', str(rom.path)]
-        cmd += ['-t', 'cci']
-        cmd += ['--header', str(rom.ncsd_header_bin)]
-        cmd += ['-0', str(rom.game_cxi)]
-        cmd += ['-1', str(rom.manual_cfa)]
-        cmd += ['-2', str(rom.download_play_cfa)]
+        cmd += ['-f', str(rom.exefs_bin)]
+        cmd += ['-t', 'exefs']
+        cmd += ['--header', str(rom.exefs_header_bin)]
+        cmd += ['--exefs-dir', str(rom.exefs_dir)]
 
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
+    async def rebuild_romfs(self, rom, status_bar):
+        status_bar.showMessage('Rebuilding RomFS...')
+
+        cmd = [str(self.path), '-c']
+        cmd += ['-f', str(rom.romfs_bin)]
+        cmd += ['-t', 'romfs']
+        cmd += ['--romfs-dir', str(rom.romfs_dir)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+    async def rebuild_all(self, rom, status_bar):
+        await self.rebuild_romfs(rom, status_bar)
+        await self.rebuild_exefs(rom, status_bar)
+        await self.rebuild_cxi(rom, status_bar)
+        await self.rebuild_cci(rom, status_bar)
 
     async def trim(self, rom, status_bar):
         rom.backup(status_bar)
@@ -293,8 +291,6 @@ class ThreedsTool(Tool):
         proc = await create
         await proc.wait()
 
-        status_bar.showMessage('Ready')
-
     async def pad(self, rom, status_bar):
         rom.backup(status_bar)
 
@@ -306,8 +302,6 @@ class ThreedsTool(Tool):
         create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
         proc = await create
         await proc.wait()
-
-        status_bar.showMessage('Ready')
 
 
 class CtrTool(Tool):
@@ -342,10 +336,10 @@ class CtrTool(Tool):
                     rom.content_size = int(line.split(':')[-1].strip(), 16)
                     continue
                 if line.startswith('Exheader size:'):
-                    rom.exheader_size = int(line.split(':')[-1].strip(), 16)
+                    rom.extended_header_size = int(line.split(':')[-1].strip(), 16)
                     continue
                 if line.startswith('Plain region size:'):
-                    rom.plain_region_size = int(line.split(':')[-1].strip(), 16)
+                    rom.plain_size = int(line.split(':')[-1].strip(), 16)
                     continue
                 if line.startswith('Logo size:'):
                     rom.logo_size = int(line.split(':')[-1].strip(), 16)
@@ -359,4 +353,19 @@ class CtrTool(Tool):
 
         await proc.wait()
 
-        status_bar.showMessage('Ready')
+
+class ThreedsConv(Tool):
+    def __init__(self):
+        super().__init__('3dsconv')
+
+    async def convert(self, rom, status_bar):
+        status_bar.showMessage('Converting to CIA...')
+
+        cmd = [str(self.path), '--overwrite', '--output=' + str(rom.working_dir), str(rom.path)]
+
+        create = asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL)
+        proc = await create
+        await proc.wait()
+
+
+

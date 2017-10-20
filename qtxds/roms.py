@@ -2,13 +2,13 @@ import os
 import shutil
 from pathlib import Path
 
-from tools import NdsTool, CtrTool, ThreedsTool
+from tools import NdsTool, CtrTool, ThreedsTool, ThreedsConv
 
 
 class Rom:
     def __init__(self, path):
         self.path = Path(path)
-        self.extract_root = self.path.parent
+        self.working_dir = self.path.parent
         self.title = ''
         self.maker_code = ''
         self.product_code = ''
@@ -16,7 +16,7 @@ class Rom:
 
     @property
     def extract_dir(self):
-        return self.extract_root / self.path.stem
+        return self.working_dir / self.path.stem
 
     def backup(self, status_bar):
         status_bar.showMessage('Backing up...')
@@ -74,20 +74,33 @@ class NdsRom(Rom):
     async def info(self, status_bar):
         await NdsRom.ndstool.info(self, status_bar)
 
-    async def extract(self, status_bar):
-        await NdsRom.ndstool.extract(self, status_bar)
+    async def extract_all(self, status_bar):
+        await NdsRom.ndstool.extract_all(self, status_bar)
 
-    async def rebuild(self, status_bar):
-        await NdsRom.ndstool.rebuild(self, status_bar)
+    async def rebuild_all(self, status_bar):
+        await NdsRom.ndstool.rebuild_all(self, status_bar)
 
     async def trim(self, status_bar):
-        await NdsRom.ndstool.extract(self, status_bar)
-        await NdsRom.ndstool.rebuild(self, status_bar)
+        await NdsRom.ndstool.extract_all(self, status_bar)
+        await NdsRom.ndstool.rebuild_all(self, status_bar)
+
+    async def decrypt(self, status_bar):
+        await NdsRom.ndstool.decrypt(self, status_bar)
+
+    async def encrypt(self, status_bar):
+        if self.maker_code == '01':
+            await NdsRom.ndstool.encrypt_nintendo(self, status_bar)
+        else:
+            await NdsRom.ndstool.encrypt_others(self, status_bar)
+
+    async def fix_header_crc(self, status_bar):
+        await NdsRom.ndstool.fix_header_crc(self, status_bar)
 
 
 class ThreedsRom(Rom):
     ctrtool = CtrTool()
     threedstool = ThreedsTool()
+    threedsconv = ThreedsConv()
 
     def __init__(self, path):
         super().__init__(path)
@@ -121,11 +134,38 @@ class ThreedsRom(Rom):
     async def info(self, status_bar):
         await ThreedsRom.ctrtool.info(self, status_bar)
 
-    async def extract(self, status_bar):
-        await ThreedsRom.threedstool.extract(self, status_bar)
+    async def extract_all(self, status_bar):
+        await ThreedsRom.threedstool.extract_all(self, status_bar)
 
-    async def rebuild(self, status_bar):
-        await ThreedsRom.threedstool.rebuild(self, status_bar)
+    async def extract_cci(self, status_bar):
+        await ThreedsRom.threedstool.extract_cci(self, status_bar)
+
+    async def extract_cxi(self, status_bar):
+        await ThreedsRom.threedstool.extract_cxi(self, status_bar)
+
+    async def extract_exefs(self, status_bar):
+        await ThreedsRom.threedstool.extract_exefs(self, status_bar)
+
+    async def extract_romfs(self, status_bar):
+        await ThreedsRom.threedstool.extract_romfs(self, status_bar)
+
+    async def rebuild_all(self, status_bar):
+        await ThreedsRom.threedstool.rebuild_all(self, status_bar)
+
+    async def rebuild_cci(self, status_bar):
+        await ThreedsRom.threedstool.rebuild_cci(self, status_bar)
+
+    async def rebuild_cxi(self, status_bar):
+        await ThreedsRom.threedstool.rebuild_cxi(self, status_bar)
+
+    async def rebuild_exefs(self, status_bar):
+        await ThreedsRom.threedstool.rebuild_exefs(self, status_bar)
+
+    async def rebuild_romfs(self, status_bar):
+        await ThreedsRom.threedstool.rebuild_romfs(self, status_bar)
+
+    async def convert_cia(self, status_bar):
+        await ThreedsRom.threedsconv.convert(self, status_bar)
 
     async def trim(self, status_bar):
         await ThreedsRom.threedstool.trim(self, status_bar)
